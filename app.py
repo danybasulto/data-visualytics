@@ -12,6 +12,8 @@ def main():
             elif file.name.endswith('.xlsx'):
                 df = pd.read_excel(file)
             st.success("¡Archivo cargado exitosamente!")
+            df_display = df.head(100)
+            st.dataframe(df_display)
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
 
