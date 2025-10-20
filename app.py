@@ -5,8 +5,9 @@ def main():
     st.header("Cargar Archivo")
     file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
 
+    df = None
+
     if file is not None:
-        df = None
         try:
             if file.name.endswith('.csv'):
                 df = pd.read_csv(file)
