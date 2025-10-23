@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -47,32 +46,12 @@ def main():
 
             # If user select linear regression.
             if selected_algorithm == "Regresión Lineal Múltiple" and variables_x and variable_y:
-                resultados = apply_linear_regression(df_display, variables_x, variable_y)
-
-                # Toda esta seccion es para graficar en streamlit
-                if resultados:
-                    st.subheader("Resultados del Modelo de Regresión Lineal")
-                    st.write(f"Variables usadas: **{', '.join(variables_x)}**")
-                    st.write(f"Variable objetivo: **{variable_y}**")
-                    
-                    # 2. Mostrar las métricas con st.metric
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if 'R2_Score' in resultados:
-                            st.metric("R2 Score", f"{resultados['R2_Score']:.4f}", help="Indica qué porcentaje de la varianza en Y es explicado por X.")
-                    with col2:
-                        if 'RMSE' in resultados:
-                            st.metric("RMSE (Error)", f"${resultados['RMSE']:.2f}", help="El error promedio de la predicción, en las unidades de la variable Y.")
-
-                    # 3. Mostrar el gráfico con st.pyplot
-                    st.markdown("---")
-                    st.markdown("#### Gráfico de Evaluación (Valores Reales vs. Predichos)")
-                    st.pyplot(resultados["Plot_Figure"]) # Renderiza la figura de Matplotlib
+                apply_linear_regression(df_display, variables_x, variable_y)
 
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
 
-def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: str):
+def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: str) -> None:
     """
     Entrena y evalúa un modelo de Regresión Lineal Múltiple.
 
@@ -88,11 +67,7 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
                         dependiente (Y), que debe ser cuantitativa.
 
     Returns:
-        dict: Un diccionario conteniendo las métricas y la figura de visualización.
-            - R2_Score (float): El coeficiente de determinación. Mide la proporción de la varianza en Y explicada por X.
-            - RMSE (float): La raíz del error cuadrático medio. Mide el error promedio en las unidades de Y.
-            - Coefficients (np.ndarray): Los coeficientes (pesos) asignados por el modelo a cada característica X.
-            - Plot_Figure (matplotlib.figure.Figure): Objeto figura con el gráfico de evaluación Real vs. Predicho.
+        None: No retorna ningun valor.
     """
 
     # Extraemos la columna X y Y.
@@ -129,7 +104,7 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     # === Aqui entrenamos el modelo :)
     model = LinearRegression()
 
-    # Pasamos los datosd dfel entrenamiento
+    # Pasamos los datosd del entrenamiento
     model.fit(X_train, Y_train)
 
     # Hacemos la prediccion sobre el conjunto de prueba
@@ -157,32 +132,8 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     print(f"R2 Score: {r2:.4f}")
     print(f"RMSE (Error): {rmse:.2f}")
 
+    return None
 
-    # === Graficacion de prueba ===
-    fig, ax = plt.subplots(figsize=(8, 6))
     
-    # Gráfico de dispersión: Real vs. Predicho
-    ax.scatter(Y_test, Y_pred, alpha=0.6, color='darkblue')
-
-    # Línea de ajuste perfecto
-    min_val = Y_test.min()
-    max_val = Y_test.max()
-    ax.plot([min_val, max_val], [min_val, max_val], 
-            color='red', linestyle='--', linewidth=2, label='Ajuste Perfecto')
-
-    ax.set_title("Regresión Lineal: Valores Reales vs. Predichos", fontsize=14)
-    ax.set_xlabel(f"Valores Reales ({target_y})", fontsize=12)
-    ax.set_ylabel(f"Valores Predichos ({target_y})", fontsize=12)
-    ax.legend()
-    ax.grid(True, linestyle=':', alpha=0.6)
-
-    # Retornamos la grafica
-    return {
-        "R2_Score": r2,
-        "RMSE": rmse,
-        "Coefficients": model.coef_,
-        "Plot_Figure": fig
-    }
-
 if __name__ == "__main__":
     main()
