@@ -52,7 +52,8 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
                         dependiente (Y), que debe ser cuantitativa.
 
     Returns:
-        None: No retorna ningun valor.
+        r2 (float): El R2 Score del modelo entrenado.
+        rmse (float): La Raiz del Error Cuadratico Medio del modelo entrenado.
     """
 
     # Extraemos la columna X y Y.
@@ -65,7 +66,16 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     # Por ejemplo: Antes -> Categoria Sexo: [Hombre, Mujer] | Después -> Categoria Sexo: [0, 1].
     df_model = pd.get_dummies(df_model, drop_first=True)
 
-    # === Tenemos que separar las carectreristicas [X], del objetivo [Y] ===
+    # Asegurarnos de que target_y siga existiendo despues de get_dummies
+    if target_y not in df_model.columns:
+        # Esto es un parche por si target_y era una de las columnas eliminadas por drop_first
+        # Idealmente, target_y siempre es numerica y no se ve afectada
+        # Si se ve afectada, la logica de get_dummies necesita ser mas robusta
+        st.error(
+            f"Error: La variable objetivo '{target_y}' se vio afectada por la codificación. Asegúrese de que sea numérica.")
+        return None, None
+
+    # === Tenemos que separar las caracteristicas [X], del objetivo [Y] ===
 
     # "Y" es la variable que queremos predecir
     Y = df_model[target_y]
@@ -110,20 +120,57 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     rmse = np.sqrt(mse)
 
     # === Prueba de resultados en consola ===
-    print("\n--- Resultados de la Regresión Lineal Múltiple ---")
-    print(f"Variables de Entrada (X) usadas: {list(X.columns)}")
-    print(f"Variable a Predecir (Y): {target_y}")
-    print("-" * 50)
-    print(f"R2 Score: {r2:.4f}")
-    print(f"RMSE (Error): {rmse:.2f}")
+    #print("\n--- Resultados de la Regresión Lineal Múltiple ---")
+    #print(f"Variables de Entrada (X) usadas: {list(X.columns)}")
+    #print(f"Variable a Predecir (Y): {target_y}")
+    #print("-" * 50)
+    #print(f"R2 Score: {r2:.4f}")
+    #print(f"RMSE (Error): {rmse:.2f}")
+    return r2, rmse, X.columns.tolist()
 
-    return None
+# === Funciones de Visualizacion ===
+def display_kmeans_results(data: pd.DataFrame, features_x: list):
+    """
+    Prepara los datos, ejecuta K-Means y muestra los resultados en Streamlit.
+    """
+    st.subheader("Resultados de K-Means")
+
+    # preparar los datos
+    x_data = data[features_x].copy()
+
+    # K-Means solo funciona con datos numericos. Filtramos.
+    x_data_numeric = x_data.select_dtypes(include=np.number)
+
+    # Validar
+    if x_data_numeric.empty:
+        st.error(
+            "Error: K-Means solo puede ejecutarse sobre variables numéricas. Por favor, seleccione columnas con /"
+            "números.")
+        return
+
+    if x_data_numeric.shape[1] < len(features_x):
+        st.warning("Advertencia: Se ignoraron algunas columnas no numéricas seleccionadas.")
+
+    # ejecutar el modelo
+    labels, inertia, groups_sizes = apply_kmeans(x_data_numeric, k=3)
+
+    # mostrar resultados en la interfaz
+    st.write("El modelo ha clasificado los datos en 3 grupos:")
+
+    # usamos st.metric para un buen impacto visual
+    st.metric(label="Inercia Total (Suma de distancias cuadradas)", value=f"{inertia:.2f}")
+
+    st.write("Tamaño de cada clúster:")
+    # creamos un DataFrame para mostrar los tamanios en una tabla
+    df_sizes = pd.DataFrame({
+        'Clúster': [f"Clúster {i}" for i in range(len(groups_sizes))],
+        'Número de Registros': groups_sizes
+    })
+    st.dataframe(df_sizes)
 
 def main():
     st.header("Cargar Archivo")
     file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
-
-    df = None
 
     if file is not None:
         try:
@@ -132,8 +179,10 @@ def main():
             elif file.name.endswith('.xlsx'):
                 df = pd.read_excel(file)
             st.success("¡Archivo cargado exitosamente!")
+            # --- Vista previa de los datos ---
             df_display = df.head(100)
             st.dataframe(df_display)
+
             columns = df.columns.tolist()
             selected_algorithm = st.selectbox(
                 "Seleccione el algoritmo a ejecutar:",
@@ -146,7 +195,6 @@ def main():
             )
 
             variable_y = None
-            # si el usuario selecciona k-means
             if selected_algorithm != "K-Means":
                 # filtramos las opciones para la variable "y" de modo que
                 # no se pueda seleccionar una variable que ya este en "x"
@@ -158,6 +206,13 @@ def main():
                     options=options_y,
                     help="Esta es la variable que el modelo intentará predecir."
                 )
+                # si el usuario selecciona k-means
+            if st.button("Ejecutar Análisis"):
+                if selected_algorithm == "K-Means":
+                    if not variables_x:
+                        st.warning("Por favor, seleccione al menos una variable de atributo (x) para K-Means.")
+                    else:
+                        display_kmeans_results(df_display, variables_x)
 
             # si el usuario selecciona regresion lineal
             if selected_algorithm == "Regresión Lineal Múltiple" and variables_x and variable_y:
