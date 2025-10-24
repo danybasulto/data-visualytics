@@ -1,69 +1,54 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
 from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 
-def main():
-    st.header("Cargar Archivo")
-    file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
+def apply_kmeans(x_data, k=3):
+    """
+    Aplica el algoritmo K-Means a los datos proporcionados.
 
-    df = None
+    Args:
+    x_data (array-like): Datos de entrada para el clustering.
+    k (int): Numero de clusters. Por defecto es 3.
 
-    if file is not None:
-        try:
-            if file.name.endswith('.csv'):
-                df = pd.read_csv(file)
-            elif file.name.endswith('.xlsx'):
-                df = pd.read_excel(file)
-            st.success("¡Archivo cargado exitosamente!")
-            df_display = df.head(100)
-            st.dataframe(df_display)
-            columns = df.columns.tolist()
-            selected_algorithm = st.selectbox(
-                "Seleccione el algoritmo a ejecutar:",
-                ["Regresión Lineal Múltiple", "Regresión Logística Binaria", "K-Means"]
-            )
-            variables_x = st.multiselect(
-                "Seleccione las variables de atributos (x):",
-                options=columns,
-                help="Estas son las variables que el modelo usará para predecir."
-            )
-
-            variable_y = None
-            if selected_algorithm != "K-Means":
-                # we filter the options for ‘Y’ so that a variable that is already in ‘X’ cannot be selected
-                options_y = [col for col in columns if col not in variables_x]
-
-                # === La variable "y", debe ser cuantitativa. Hay que mejorar esto en el formulario ===
-                variable_y = st.selectbox(
-                    "Seleccione la variable de la clase (y):",
-                    options=options_y,
-                    help="Esta es la variable que el modelo intentará predecir."
-                )
-
-            # If user select linear regression.
-            if selected_algorithm == "Regresión Lineal Múltiple" and variables_x and variable_y:
-                apply_linear_regression(df_display, variables_x, variable_y)
-
-        except Exception as e:
-            st.error(f"Error al leer el archivo: {e}")
+    Returns:
+    labels (array): Etiquetas de cluster asignadas a cada punto de datos.
+    inertia (float): Inercia del modelo K-Means.
+    groups_sizes (array): Tamaños de cada grupo/clúster.
+    """
+    model = KMeans(n_clusters=k,    # numero de clusters
+                   n_init='auto',   # numero de inicializaciones, 'auto' es para que sklearn elija el mejor valor
+                   random_state=42  # semilla para reproducibilidad, es para que los resultados sean consistentes,
+                                    # cada vez que se ejecute el codigo
+                   )
+    # la funcion fit ajusta el modelo a los datos, es decir, encuentra los centroides de los clusters
+    model.fit(x_data)
+    # .labels_ contiene las etiquetas asignadas a cada punto de datos, indicando a que cluster pertenece
+    labels = model.labels_
+    # .inertia_ es una medida de como de compactos son los clusters, es la suma de las distancias cuadradas
+    # entre cada punto y el centroide de su cluster
+    inertia = model.inertia_
+    # np.bincount cuenta el numero de ocurrencias de cada etiqueta en "labels"
+    # esta es una forma eficiente de obtener el tamanio de cada cluster
+    groups_sizes = np.bincount(labels)
+    return labels, inertia, groups_sizes
 
 def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: str) -> None:
     """
     Entrena y evalúa un modelo de Regresión Lineal Múltiple.
 
-    Esta función prepara los datos (codificación one-hot), divide el conjunto 
-    en entrenamiento y prueba, entrena el modelo de regresión lineal y calcula 
+    Esta función prepara los datos (codificación one-hot), divide el conjunto
+    en entrenamiento y prueba, entrena el modelo de regresión lineal y calcula
     las métricas de evaluación (R2 y RMSE).
 
     Args:
         data (pd.DataFrame): El DataFrame completo que contiene los datos a analizar.
-        features_x (list): Lista de cadenas con los nombres de las columnas 
+        features_x (list): Lista de cadenas con los nombres de las columnas
                             seleccionadas como variables independientes (X).
-        target_y (str): Nombre de la columna seleccionada como variable 
+        target_y (str): Nombre de la columna seleccionada como variable
                         dependiente (Y), que debe ser cuantitativa.
 
     Returns:
@@ -90,8 +75,8 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
 
     # === Dividimos los datos en Entrenamiento y prueba ===
 
-    # Nota: Aunque solo trabajamos con las primeras 100 filas (80 para entrenamiento, 20 para prueba), 
-    # se mantiene la proporción estándar del 20% para el conjunto de prueba. 
+    # Nota: Aunque solo trabajamos con las primeras 100 filas (80 para entrenamiento, 20 para prueba),
+    # se mantiene la proporción estándar del 20% para el conjunto de prueba.
     # En un entorno de producción, se usaría el DataFrame completo.
     X_train, X_test, Y_train, Y_test = train_test_split(
         X, Y,
@@ -122,9 +107,9 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
 
     # Calculamos la raiz del Error Cuadratico Medio RMSE
     # Trabaja los mismos valores del objetivo
-    rmse = np.sqrt(mse) 
+    rmse = np.sqrt(mse)
 
-    # === Prueba de resultados en consola === 
+    # === Prueba de resultados en consola ===
     print("\n--- Resultados de la Regresión Lineal Múltiple ---")
     print(f"Variables de Entrada (X) usadas: {list(X.columns)}")
     print(f"Variable a Predecir (Y): {target_y}")
@@ -134,6 +119,52 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
 
     return None
 
+def main():
+    st.header("Cargar Archivo")
+    file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
+
+    df = None
+
+    if file is not None:
+        try:
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            elif file.name.endswith('.xlsx'):
+                df = pd.read_excel(file)
+            st.success("¡Archivo cargado exitosamente!")
+            df_display = df.head(100)
+            st.dataframe(df_display)
+            columns = df.columns.tolist()
+            selected_algorithm = st.selectbox(
+                "Seleccione el algoritmo a ejecutar:",
+                ["Regresión Lineal Múltiple", "Regresión Logística Binaria", "K-Means"]
+            )
+            variables_x = st.multiselect(
+                "Seleccione las variables de atributos (x):",
+                options=columns,
+                help="Estas son las variables que el modelo usará para predecir."
+            )
+
+            variable_y = None
+            # si el usuario selecciona k-means
+            if selected_algorithm != "K-Means":
+                # filtramos las opciones para la variable "y" de modo que
+                # no se pueda seleccionar una variable que ya este en "x"
+                options_y = [col for col in columns if col not in variables_x]
+
+                # === La variable "y", debe ser cuantitativa. Hay que mejorar esto en el formulario ===
+                variable_y = st.selectbox(
+                    "Seleccione la variable de la clase (y):",
+                    options=options_y,
+                    help="Esta es la variable que el modelo intentará predecir."
+                )
+
+            # si el usuario selecciona regresion lineal
+            if selected_algorithm == "Regresión Lineal Múltiple" and variables_x and variable_y:
+                apply_linear_regression(df_display, variables_x, variable_y)
+
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
     
 if __name__ == "__main__":
     main()
