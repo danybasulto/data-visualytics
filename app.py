@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
@@ -128,6 +129,45 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     #print(f"RMSE (Error): {rmse:.2f}")
     return r2, rmse, X.columns.tolist()
 
+# === Funciones para Graficar ===
+def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray):
+    """
+    Crea un gráfico de dispersión de K-Means si hay 2 o 3 variables.
+
+    Args:
+        data (pd.DataFrame): El DataFrame completo que contiene los datos a analizar.
+        features_x (list): Lista de cadenas con los nombres de las columnas seleccionadas como variables
+            independientes (X).
+        labels (np.ndarray): Etiquetas de clúster asignadas a cada punto de datos.
+    """
+    # agregamos las etiquetas de cluster al dataframe para que Plotly pueda usarlas
+    data_plot = data[features_x].copy()
+    data_plot['Cluster'] = labels.astype(str)  # Convertir a string para colores categoricos
+
+    if len(features_x) == 2:
+        # Grafico 2D
+        fig = px.scatter(
+            data_plot,
+            x=features_x[0],
+            y=features_x[1],
+            color='Cluster',
+            title="Visualización de Clústeres (K-Means)"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif len(features_x) == 3:
+        # Grafico 3D
+        fig = px.scatter_3d(
+            data_plot,
+            x=features_x[0],
+            y=features_x[1],
+            z=features_x[2],
+            color='Cluster',
+            title="Visualización de Clústeres (K-Means) 3D"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
+
 # === Funciones de Visualizacion ===
 def display_kmeans_results(data: pd.DataFrame, features_x: list):
     """
@@ -167,6 +207,9 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
         'Número de Registros': groups_sizes
     })
     st.dataframe(df_sizes)
+
+    # graficar los resultados
+    plot_kmeans_results(data, features_x, labels)
 
 def main():
     st.header("Cargar Archivo")
