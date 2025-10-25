@@ -57,6 +57,9 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     Returns:
         r2 (float): El R2 Score del modelo entrenado.
         rmse (float): La Raiz del Error Cuadratico Medio del modelo entrenado.
+        feature_names (list): Nombres de las caracteristicas (X) utilizadas despues del One-Hot Encoding.
+        coefficients (array): Los coeficientes del modelo para cada caracteristica.
+        intercept (float): El intercepto (ordenada al origen) del modelo.
     """
 
     # Extraemos la columna X y Y.
@@ -76,7 +79,7 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
         # Si se ve afectada, la logica de get_dummies necesita ser mas robusta
         st.error(
             f"Error: La variable objetivo '{target_y}' se vio afectada por la codificación. Asegúrese de que sea numérica.")
-        return None, None
+        return None, None, None, None
 
     # === Tenemos que separar las caracteristicas [X], del objetivo [Y] ===
 
@@ -129,7 +132,7 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     #print("-" * 50)
     #print(f"R2 Score: {r2:.4f}")
     #print(f"RMSE (Error): {rmse:.2f}")
-    return r2, rmse, X.columns.tolist()
+    return r2, rmse, X.columns.tolist(), model.coef_, model.intercept_
 
 # === Funciones para Graficar ===
 def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray):
