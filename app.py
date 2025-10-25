@@ -254,7 +254,7 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
     plot_kmeans_results(data, features_x, labels)
 
 
-def display_lineal_regression_results(r2, rmse, featured_used, coefs, intercept, Y_test, Y_pred, target_y):
+def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept, Y_test, Y_pred, target_y):
     """
     Muestra las metricas, coeficientes y la visualizacion de la Regresion Lineal en StreamLit.
     """
@@ -375,7 +375,19 @@ def main():
                 # Si el usuario selecciona regresion lineal
                 elif selected_algorithm == "Regresión Lineal Múltiple": 
                     if variables_x and variable_y:
-                        r2, rmse, features_used = apply_linear_regression(df_display, variables_x, variable_y)
+                        r2, rmse, features_used, coefs, intercept, Y_test, Y_pred = apply_linear_regression(
+                            df_display, variables_x, variable_y
+                        )
+
+                        # Validacion, por si hay errores
+                        if r2 is not None:
+                                display_linear_regression_results(
+                                    r2, rmse, features_used, coefs, intercept, 
+                                    Y_test, Y_pred, variable_y
+                                )
+                        else:
+                            st.error("No se pudo ejecutar la Regresión Lineal Múltiple. Revise la consola para detalles.")
+
 
                 # Si el ususario selecciona regresion logistica binaria
                 elif selected_algorithm == "Regresión Logística Binaria":
