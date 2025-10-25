@@ -5,7 +5,9 @@ import plotly.express as px
 from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.preprocessing import StandardScaler
 
 def apply_kmeans(x_data, k=3):
     """
@@ -20,7 +22,7 @@ def apply_kmeans(x_data, k=3):
     inertia (float): Inercia del modelo K-Means.
     groups_sizes (array): Tamaños de cada grupo/clúster.
     """
-    model = KMeans(n_clusters=k,    # numero de clusters
+    model = KMeans(n_clusters=k,    # numero de clusterss
                    n_init='auto',   # numero de inicializaciones, 'auto' es para que sklearn elija el mejor valor
                    random_state=42  # semilla para reproducibilidad, es para que los resultados sean consistentes,
                                     # cada vez que se ejecute el codigo
@@ -210,6 +212,52 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
 
     # graficar los resultados
     plot_kmeans_results(data, features_x, labels)
+
+
+    def apply_logistic_regression(X: pd.DataFrame, Y: pd.Series):
+        """
+        Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
+
+        Esta función asume que los datos ya han sido preparados.
+        y que la variable objetivo (Y) es binaria (0 o 1).
+
+        Args:
+            X (pd.DataFrame): Variables independientes (features).
+            Y (pd.Series): Variable dependiente (target), debe ser binaria.
+
+        Returns:
+            tuple: Tupla que contiene:
+                - coefficients (np.ndarray): Coeficientes (pesos) del modelo.
+                - intercept (float): Intercepto del modelo.
+                - feature_names (list): Nombres de las caracteristicas (X) utilizadas.
+        """
+        
+        # === Dividimos los datos de entrenamiento y prueba ===
+        # Tengo entendido que es buena practica dividir los datos, incluso si qui no se evaluan
+        X_train, X_test, Y_train, Y_test = train_test_split(
+            X, Y,
+            test_size = 0.2,
+            random_state = 42,
+            stratify = Y
+        )
+
+        # === Escalamos los datos ===
+        # Sirve para converger mas rapido
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+
+        # === Creamos y entrenamos el modelo
+        # Liblinear sirve para conjuntos pequenos
+        model = LogisticRegression(solver="liblinear", random_state=42)
+
+        # Entrenamos el modelo
+        model.fit(X_train_scaled, Y_train)
+
+        coefficients = model.coef_[0]
+        intercept = model.intercept_[0]
+
+        return coefficients, intercept, X_train.columns.tolist()
+
 
 def main():
     st.header("Cargar Archivo")
