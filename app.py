@@ -132,7 +132,8 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     #print("-" * 50)
     #print(f"R2 Score: {r2:.4f}")
     #print(f"RMSE (Error): {rmse:.2f}")
-    return r2, rmse, X.columns.tolist(), model.coef_, model.intercept_
+    return r2, rmse, X.columns.tolist(), model.coef_, model.intercept_, Y_test, Y_pred
+
 
 # === Funciones para Graficar ===
 def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray):
@@ -172,6 +173,42 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
+
+
+# Grafica de la Regresion Lineal
+def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target_y: str):
+    """
+    Crea un grafico de dispersion de los valores Reales vs Predichos para Regresion Lineal.
+    """
+    
+    # Creamos un dataframe para el plot
+    df_plot = pd.DataFrame({
+        f'Valores Reales de {target_y}': Y_test,
+        f'Valores Predichos de {target_y}': Y_pred
+    })
+
+    # Creamos la fig
+    fig = px.scatter(
+        df_plot,
+        x = f'Valores Reales de {target_y}',
+        y = f'Valores Predichos de {target_y}',
+        title = f"Regresion Lineal: Valores Reales vs Predichos de '{target_y}'",
+        labels = {'x': 'Valor Real', 'y': 'Valor Predicho'}
+    )
+
+    # Linea diagonal de la funcion
+    max_val = max(Y_test.max(), Y_pred.max())
+    min_val = min(Y_test.min(), Y_pred.min())
+    fig.add_shape(
+        type="line",
+        x0=min_val, y0=min_val,
+        x1=max_val, y1=max_val,
+        line=dict(color="red", width=2, dash="dash"),
+        name='Ajuste Perfecto(Y = X)'
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
 
 # === Funciones de Visualizacion ===
 def display_kmeans_results(data: pd.DataFrame, features_x: list):
@@ -217,49 +254,46 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
     plot_kmeans_results(data, features_x, labels)
 
 
-    def apply_logistic_regression(X: pd.DataFrame, Y: pd.Series):
-        """
-        Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
 
-        Esta función asume que los datos ya han sido preparados.
-        y que la variable objetivo (Y) es binaria (0 o 1).
+def apply_logistic_regression(X: pd.DataFrame, Y: pd.Series):
+    """
+    Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
+    Esta función asume que los datos ya han sido preparados.
+    y que la variable objetivo (Y) es binaria (0 o 1).
+    Args:
+        X (pd.DataFrame): Variables independientes (features).
+        Y (pd.Series): Variable dependiente (target), debe ser binaria.
+    Returns:
+        tuple: Tupla que contiene:
+            - coefficients (np.ndarray): Coeficientes (pesos) del modelo.
+            - intercept (float): Intercepto del modelo.
+            - feature_names (list): Nombres de las caracteristicas (X) utilizadas.
+    """
+    
+    # === Dividimos los datos de entrenamiento y prueba ===
+    # Tengo entendido que es buena practica dividir los datos, incluso si qui no se evaluan
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        X, Y,
+        test_size = 0.2,
+        random_state = 42,
+        stratify = Y
+    )
 
-        Args:
-            X (pd.DataFrame): Variables independientes (features).
-            Y (pd.Series): Variable dependiente (target), debe ser binaria.
+    # === Escalamos los datos ===
+    # Sirve para converger mas rapido
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
 
-        Returns:
-            tuple: Tupla que contiene:
-                - coefficients (np.ndarray): Coeficientes (pesos) del modelo.
-                - intercept (float): Intercepto del modelo.
-                - feature_names (list): Nombres de las caracteristicas (X) utilizadas.
-        """
-        
-        # === Dividimos los datos de entrenamiento y prueba ===
-        # Tengo entendido que es buena practica dividir los datos, incluso si qui no se evaluan
-        X_train, X_test, Y_train, Y_test = train_test_split(
-            X, Y,
-            test_size = 0.2,
-            random_state = 42,
-            stratify = Y
-        )
+    # === Creamos y entrenamos el modelo
+    # Liblinear sirve para conjuntos pequenos
+    model = LogisticRegression(solver="liblinear", random_state=42)
 
-        # === Escalamos los datos ===
-        # Sirve para converger mas rapido
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
+    # Entrenamos el modelo
+    model.fit(X_train_scaled, Y_train)
+    coefficients = model.coef_[0]
+    intercept = model.intercept_[0]
 
-        # === Creamos y entrenamos el modelo
-        # Liblinear sirve para conjuntos pequenos
-        model = LogisticRegression(solver="liblinear", random_state=42)
-
-        # Entrenamos el modelo
-        model.fit(X_train_scaled, Y_train)
-
-        coefficients = model.coef_[0]
-        intercept = model.intercept_[0]
-
-        return coefficients, intercept, X_train.columns.tolist()
+    return coefficients, intercept, X_train.columns.tolist()
 
 
 def main():
