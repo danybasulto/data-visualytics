@@ -305,9 +305,14 @@ def main():
                     else:
                         display_kmeans_results(df_display, variables_x)
 
-            # si el usuario selecciona regresion lineal
-            if selected_algorithm == "Regresión Lineal Múltiple" and variables_x and variable_y:
-                apply_linear_regression(df_display, variables_x, variable_y)
+                # Si el usuario selecciona regresion lineal
+                elif selected_algorithm == "Regresión Lineal Múltiple": 
+                    if variables_x and variable_y:
+                        r2, rmse, features_used = apply_linear_regression(df_display, variables_x, variable_y)
+
+                # Si el ususario selecciona regresion logistica binaria
+                elif selected_algorithm == "Regresión Logística Binaria":
+                    pass
 
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
