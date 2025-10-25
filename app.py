@@ -254,6 +254,36 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
     plot_kmeans_results(data, features_x, labels)
 
 
+def display_lineal_regression_results(r2, rmse, featured_used, coefs, intercept, Y_test, Y_pred, target_y):
+    """
+    Muestra las metricas, coeficientes y la visualizacion de la Regresion Lineal en StreamLit.
+    """
+    st.subheader("Resultados de Regresion Lineal Multiple")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="R² Score (Bondad de Ajuste)", value=f"{r2:.4}", help="Cercano a 1 es mejor.")
+    with col2:
+        st.metric(label=f"RMSE (Error de Prediccion en {target_y})", value=f"{rmse:.2f}", help="Valor de error promedio, en las mismas unidades que Y.")
+
+    st.write("---")
+
+    # Mostrar el coeficiente del modelo
+    st.write("### Coeficientes del modelo")
+    # Dataframe para mostrar
+    df_coefs = pd.DataFrame({
+        'Variable': featured_used,
+        'Coeficiente': coefs
+    })
+    st.dataframe(df_coefs, use_container_width=True)
+    st.write(f"**Intercepto (Ordenada al origen):** '{intercept:.4f}'")
+
+    st.write("---")
+
+    # Visualizacion
+    st.write("### Visualizacion de Predicciones")
+    plot_linear_regression_results(Y_test, Y_pred, target_y)
+
 
 def apply_logistic_regression(X: pd.DataFrame, Y: pd.Series):
     """
