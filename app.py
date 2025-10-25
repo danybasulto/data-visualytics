@@ -159,7 +159,7 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
             color='Cluster',
             title="Visualización de Clústeres (K-Means)"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     elif len(features_x) == 3:
         # Grafico 3D
         fig = px.scatter_3d(
@@ -170,7 +170,7 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
             color='Cluster',
             title="Visualización de Clústeres (K-Means) 3D"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
 
@@ -207,7 +207,7 @@ def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target
         name='Ajuste Perfecto(Y = X)'
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 
 # === Funciones de Visualizacion ===
@@ -275,7 +275,7 @@ def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept,
         'Variable': featured_used,
         'Coeficiente': coefs
     })
-    st.dataframe(df_coefs, use_container_width=True)
+    st.dataframe(df_coefs, width='stretch')
     st.write(f"**Intercepto (Ordenada al origen):** '{intercept:.4f}'")
 
     st.write("---")
