@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
 from sklearn.preprocessing import StandardScaler
 
 def apply_kmeans(x_data, k=3):
@@ -134,6 +134,63 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
     #print(f"RMSE (Error): {rmse:.2f}")
     return r2, rmse, X.columns.tolist(), model.coef_, model.intercept_, Y_test, Y_pred
 
+def apply_logistic_regression(data: pd.DataFrame, features_x: list, target_y: str):
+    """
+    Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
+    Se asegura de que los datos estén codificados y escalados.
+    
+    Retorna la precisión (accuracy), nombres de las características, coeficientes, intercepto,
+    y los conjuntos de prueba (Y_test, Y_pred).
+    """
+    
+    # Preparación de la Variable Objetivo (Y)
+    # Convertimos la variable objetivo a binaria (0 y 1). 
+    try:
+        # pd.factorize devuelve una tupla: (array de enteros, array de valores únicos)
+        Y_encoded, unique_classes = pd.factorize(data[target_y])
+        Y = pd.Series(Y_encoded)
+    except Exception as e:
+        st.error(f"Error al codificar la variable objetivo '{target_y}': {e}")
+        return None, None, None, None, None, None
+        
+    # Validación Binaria
+    # Se valida que haya exactamente dos clases
+    if len(unique_classes) != 2:
+        st.error(f"Error: La Regresión Logística Binaria requiere que la variable objetivo '{target_y}' tenga exactamente dos clases. Se encontraron {len(unique_classes)}.")
+        return None, None, None, None, None, None
+
+    # Preparación de Variables Predictoras (X)
+    X = data[features_x].copy()
+    # Aplicamos One-Hot Encoding SOLAMENTE a las variables predictoras (X)
+    X = pd.get_dummies(X, drop_first=True)
+
+    # División de datos
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        X, Y,
+        test_size = 0.2,
+        random_state = 42,
+        stratify = Y # Mantiene la proporción de clases en train/test
+    )
+
+    # Escalado de datos
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    # Entrenamiento del modelo
+    model = LogisticRegression(solver="liblinear", random_state=42)
+    model.fit(X_train_scaled, Y_train)
+
+    # Evaluación
+    Y_pred = model.predict(X_test_scaled)
+    accuracy = accuracy_score(Y_test, Y_pred)
+
+    coefficients = model.coef_[0]
+    intercept = model.intercept_[0]
+    feature_names = X.columns.to_list()
+
+    # Retorna los 6 valores
+    return accuracy, feature_names, coefficients, intercept, Y_test, Y_pred
 
 # === Funciones para Graficar ===
 def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray):
@@ -207,6 +264,27 @@ def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target
         name='Ajuste Perfecto(Y = X)'
     )
 
+    st.plotly_chart(fig, width='stretch')
+
+def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarray):
+    """
+    Crea un gráfico de barras mostrando la magnitud e impacto de los coeficientes del modelo.
+    """
+    df_coefs = pd.DataFrame({
+        'Variable': feature_names,
+        'Coeficiente': coefficients
+    }).sort_values(by='Coeficiente', ascending=False)
+    
+    fig = px.bar(
+        df_coefs,
+        x='Coeficiente',
+        y='Variable',
+        orientation='h',
+        color=np.where(df_coefs['Coeficiente'] > 0, 'Positivo', 'Negativo'),
+        color_discrete_map={'Positivo': 'blue', 'Negativo': 'red'},
+        title="Importancia y Dirección del Impacto de las Variables (Coeficientes Logísticos)"
+    )
+    fig.update_layout(showlegend=False)
     st.plotly_chart(fig, width='stretch')
 
 
@@ -284,46 +362,38 @@ def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept,
     st.write("### Visualizacion de Predicciones")
     plot_linear_regression_results(Y_test, Y_pred, target_y)
 
+def display_logistic_regression_results(accuracy, feature_names, coefficients, intercept, target_y):
+    """
+    Muestra las métricas, coeficientes y la visualización de la Regresión Logística en Streamlit.
+    """
+    st.subheader("Resultados de Regresión Logística Binaria")
 
-def apply_logistic_regression(X: pd.DataFrame, Y: pd.Series):
-    """
-    Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
-    Esta función asume que los datos ya han sido preparados.
-    y que la variable objetivo (Y) es binaria (0 o 1).
-    Args:
-        X (pd.DataFrame): Variables independientes (features).
-        Y (pd.Series): Variable dependiente (target), debe ser binaria.
-    Returns:
-        tuple: Tupla que contiene:
-            - coefficients (np.ndarray): Coeficientes (pesos) del modelo.
-            - intercept (float): Intercepto del modelo.
-            - feature_names (list): Nombres de las caracteristicas (X) utilizadas.
-    """
-    
-    # === Dividimos los datos de entrenamiento y prueba ===
-    # Tengo entendido que es buena practica dividir los datos, incluso si qui no se evaluan
-    X_train, X_test, Y_train, Y_test = train_test_split(
-        X, Y,
-        test_size = 0.2,
-        random_state = 42,
-        stratify = Y
+    st.metric(
+        label=f"Precisión (Accuracy) del Modelo", 
+        value=f"{accuracy*100:.2f}%", 
+        help="Proporción de predicciones correctas en el conjunto de prueba."
     )
 
-    # === Escalamos los datos ===
-    # Sirve para converger mas rapido
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
+    st.write("---")
 
-    # === Creamos y entrenamos el modelo
-    # Liblinear sirve para conjuntos pequenos
-    model = LogisticRegression(solver="liblinear", random_state=42)
+    # Mostrar el coeficiente del modelo
+    st.write("### Coeficientes del modelo (Log-Odds)")
+    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva (1).")
+    
+    # Dataframe para mostrar 
+    df_coefs = pd.DataFrame({
+        'Variable': feature_names,
+        'Coeficiente (Log-Odds)': coefficients
+    })
+    st.dataframe(df_coefs, width='stretch')
+    st.write(f"**Intercepto:** '{intercept:.4f}'")
+    
+    st.write("---")
 
-    # Entrenamos el modelo
-    model.fit(X_train_scaled, Y_train)
-    coefficients = model.coef_[0]
-    intercept = model.intercept_[0]
+    # Visualizacion
+    st.write("### Visualización de la Importancia de las Características")
+    plot_logistic_regression_results(feature_names, coefficients)
 
-    return coefficients, intercept, X_train.columns.tolist()
 
 
 def main():
@@ -391,7 +461,17 @@ def main():
 
                 # Si el ususario selecciona regresion logistica binaria
                 elif selected_algorithm == "Regresión Logística Binaria":
-                    pass
+                    if variables_x and variable_y:
+                        accuracy, feature_names, coefficients, intercept, Y_test, Y_pred = apply_logistic_regression(
+                            df_display, variables_x, variable_y
+                        )
+
+                        # Validar por si hay errores
+                        if accuracy is not None:
+                            display_logistic_regression_results(
+                                accuracy, feature_names, coefficients, intercept, variable_y
+                            )
+
 
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
