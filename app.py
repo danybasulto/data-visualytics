@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import r2_score, mean_squared_error, accuracy_score
+from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 
 def apply_kmeans(x_data, k=3):
@@ -136,61 +136,51 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
 
 def apply_logistic_regression(data: pd.DataFrame, features_x: list, target_y: str):
     """
-    Entrena un modelo de Regresión Logística para un problema de clasificación binaria.
-    Se asegura de que los datos estén codificados y escalados.
-    
-    Retorna la precisión (accuracy), nombres de las características, coeficientes, intercepto,
-    y los conjuntos de prueba (Y_test, Y_pred).
+    Entrena un modelo de Regresion Logistica para un problema de clasificacion binaria.
     """
-    
-    # Preparación de la Variable Objetivo (Y)
-    # Convertimos la variable objetivo a binaria (0 y 1). 
+    # Preparacion de la variable objetivo (Y)
     try:
-        # pd.factorize devuelve una tupla: (array de enteros, array de valores únicos)
-        Y_encoded, unique_classes = pd.factorize(data[target_y])
-        Y = pd.Series(Y_encoded)
+        y_encoded, unique_classes = pd.factorize(data[target_y])
+        y = pd.Series(y_encoded)
     except Exception as e:
         st.error(f"Error al codificar la variable objetivo '{target_y}': {e}")
-        return None, None, None, None, None, None
-        
-    # Validación Binaria
-    # Se valida que haya exactamente dos clases
+        return None, None, None, None, None, None, None, None, None, None
+    # Validacion Binaria
     if len(unique_classes) != 2:
         st.error(f"Error: La Regresión Logística Binaria requiere que la variable objetivo '{target_y}' tenga exactamente dos clases. Se encontraron {len(unique_classes)}.")
-        return None, None, None, None, None, None
-
-    # Preparación de Variables Predictoras (X)
-    X = data[features_x].copy()
-    # Aplicamos One-Hot Encoding SOLAMENTE a las variables predictoras (X)
-    X = pd.get_dummies(X, drop_first=True)
-
-    # División de datos
-    X_train, X_test, Y_train, Y_test = train_test_split(
-        X, Y,
+        return None, None, None, None, None, None, None, None, None, None
+    # Preparacion de las variables predictoras (x)
+    x = data[features_x].copy()
+    x = pd.get_dummies(x, drop_first=True)
+    # Division de datos
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y,
         test_size = 0.2,
         random_state = 42,
-        stratify = Y # Mantiene la proporción de clases en train/test
+        stratify = y
     )
-
     # Escalado de datos
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
+    x_train_scaled = scaler.fit_transform(x_train)
+    x_test_scaled = scaler.transform(x_test)
     # Entrenamiento del modelo
     model = LogisticRegression(solver="liblinear", random_state=42)
-    model.fit(X_train_scaled, Y_train)
-
-    # Evaluación
-    Y_pred = model.predict(X_test_scaled)
-    accuracy = accuracy_score(Y_test, Y_pred)
+    model.fit(x_train_scaled, y_train)
+    # --- INICIO DE CALCULO DE METRICAS ---
+    y_pred = model.predict(x_test_scaled)
+    # La clase positiva se asume como 1 (la segunda encontrada por factorize)
+    pos_label = 1
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
+    recall = recall_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
+    f1 = f1_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
+    cm = confusion_matrix(y_test, y_pred)
 
     coefficients = model.coef_[0]
     intercept = model.intercept_[0]
-    feature_names = X.columns.to_list()
-
-    # Retorna los 6 valores
-    return accuracy, feature_names, coefficients, intercept, Y_test, Y_pred
+    feature_names = x.columns.to_list()
+    # Retorna los 11 valores
+    return accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, y_test, y_pred
 
 # === Funciones para Graficar ===
 def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray):
@@ -231,7 +221,6 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
 
-# Grafica de la Regresion Lineal
 def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target_y: str):
     """
     Crea un grafico de dispersion de los valores Reales vs Predichos para Regresion Lineal.
@@ -265,26 +254,50 @@ def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target
 
     st.plotly_chart(fig, width='stretch')
 
-def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarray):
+def display_logistic_regression_results(accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, target_y):
     """
-    Crea un gráfico de barras mostrando la magnitud e impacto de los coeficientes del modelo.
+    Muestra las metricas, matriz de confusion, coeficientes
+    y la visualizacion de la Regresion Logistica en Streamlit.
     """
+    st.subheader("Resultados de Regresión Logística Binaria")
+    # Fila 1: Accuracy
+    st.metric(
+        label=f"Precisión (Accuracy) del Modelo", 
+        value=f"{accuracy*100:.2f}%", 
+        help="Proporción de predicciones correctas en el conjunto de prueba."
+    )
+    # Fila 2: Precision, Recall, F1-Score
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Precisión (Precision)", value=f"{precision:.4f}", help="De todas las predicciones 'Positivas', cuántas fueron correctas. (Clase Positiva: 1)")
+    with col2:
+        st.metric(label="Sensibilidad (Recall)", value=f"{recall:.4f}", help="De todos los casos 'Positivos' reales, cuántos se detectaron. (Clase Positiva: 1)")
+    with col3:
+        st.metric(label="Puntuación F1 (F1-Score)", value=f"{f1:.4f}", help="Media armónica de Precision y Recall.")
+    st.write("---")
+    # Fila 3: Matriz de Confusion
+    st.write("### Matriz de Confusión")
+    # Usamos las etiquetas de clase reales obtenidas de factorize
+    cm_df = pd.DataFrame(cm, 
+                         columns=[f"Predicción: {c}" for c in unique_classes], 
+                         index=[f"Real: {c}" for c in unique_classes])
+    st.dataframe(cm_df, width='stretch')
+    st.info(f"Clase 0: '{unique_classes[0]}' (Negativa) | Clase 1: '{unique_classes[1]}' (Positiva)")
+    st.write("---")
+    # --- Coeficientes y Grafico ---
+    st.write("### Coeficientes del modelo (Log-Odds)")
+    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva.")
+    
     df_coefs = pd.DataFrame({
         'Variable': feature_names,
-        'Coeficiente': coefficients
-    }).sort_values(by='Coeficiente', ascending=False)
-    
-    fig = px.bar(
-        df_coefs,
-        x='Coeficiente',
-        y='Variable',
-        orientation='h',
-        color=np.where(df_coefs['Coeficiente'] > 0, 'Positivo', 'Negativo'),
-        color_discrete_map={'Positivo': 'blue', 'Negativo': 'red'},
-        title="Importancia y Dirección del Impacto de las Variables (Coeficientes Logísticos)"
-    )
-    fig.update_layout(showlegend=False)
-    st.plotly_chart(fig, width='stretch')
+        'Coeficiente (Log-Odds)': coefficients
+    })
+    st.dataframe(df_coefs, width='stretch')
+    st.write(f"**Intercepto:** '{intercept:.4f}'")
+    st.write("---")
+    # Visualizacion
+    st.write("### Visualización de la Importancia de las Características")
+    plot_logistic_regression_results(feature_names, coefficients)
 
 # === Funciones de Visualizacion ===
 def display_kmeans_results(data: pd.DataFrame, features_x: list):
@@ -440,28 +453,31 @@ def main():
                 # Si el usuario selecciona regresion lineal
                 elif selected_algorithm == "Regresión Lineal Múltiple": 
                     if variables_x and variable_y:
-                        r2, rmse, features_used, coefs, intercept, Y_test, Y_pred = apply_linear_regression(
+                        r2, rmse, features_used, coefs, intercept, y_test, y_pred = apply_linear_regression(
                             df, variables_x, variable_y
                         )
                         # Validacion, por si hay errores
                         if r2 is not None:
                                 display_linear_regression_results(
                                     r2, rmse, features_used, coefs, intercept, 
-                                    Y_test, Y_pred, variable_y
+                                    y_test, y_pred, variable_y
                                 )
                         else:
                             st.error("No se pudo ejecutar la Regresión Lineal Múltiple. Revise la consola para detalles.")
                 # Si el ususario selecciona regresion logistica binaria
                 elif selected_algorithm == "Regresión Logística Binaria":
                     if variables_x and variable_y:
-                        accuracy, feature_names, coefficients, intercept, Y_test, Y_pred = apply_logistic_regression(
+                        (
+                            accuracy, precision, recall, f1, cm, unique_classes,
+                            feature_names, coefficients, intercept, y_test, y_pred
+                        ) = apply_logistic_regression(
                             df, variables_x, variable_y
                         )
                         # Validar por si hay errores
                         if accuracy is not None:
                             display_logistic_regression_results(
-                                accuracy, feature_names, coefficients,
-                                intercept, variable_y
+                                accuracy, precision, recall, f1, cm, unique_classes,
+                                feature_names, coefficients, intercept, variable_y
                             )
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
