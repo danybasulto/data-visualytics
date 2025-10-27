@@ -231,7 +231,6 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
 
-
 # Grafica de la Regresion Lineal
 def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target_y: str):
     """
@@ -287,7 +286,6 @@ def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarr
     fig.update_layout(showlegend=False)
     st.plotly_chart(fig, width='stretch')
 
-
 # === Funciones de Visualizacion ===
 def display_kmeans_results(data: pd.DataFrame, features_x: list):
     """
@@ -330,7 +328,6 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
 
     # graficar los resultados
     plot_kmeans_results(data, features_x, labels)
-
 
 def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept, Y_test, Y_pred, target_y):
     """
@@ -394,8 +391,6 @@ def display_logistic_regression_results(accuracy, feature_names, coefficients, i
     st.write("### Visualización de la Importancia de las Características")
     plot_logistic_regression_results(feature_names, coefficients)
 
-
-
 def main():
     st.header("Cargar Archivo")
     file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
@@ -428,27 +423,26 @@ def main():
                 # no se pueda seleccionar una variable que ya este en "x"
                 options_y = [col for col in columns if col not in variables_x]
 
-                # === La variable "y", debe ser cuantitativa. Hay que mejorar esto en el formulario ===
+                # === La variable "y", debe ser cuantitativa
+                # Hay que mejorar esto en el formulario ===
                 variable_y = st.selectbox(
                     "Seleccione la variable de la clase (y):",
                     options=options_y,
                     help="Esta es la variable que el modelo intentará predecir."
                 )
-                # si el usuario selecciona k-means
+            # === Boton para ejecutar el analisis ===
             if st.button("Ejecutar Análisis"):
                 if selected_algorithm == "K-Means":
                     if not variables_x:
-                        st.warning("Por favor, seleccione al menos una variable de atributo (x) para K-Means.")
+                        st.warning("Por favor, seleccione al menos una /variable de atributo (x) para K-Means.")
                     else:
-                        display_kmeans_results(df_display, variables_x)
-
+                        display_kmeans_results(df, variables_x)
                 # Si el usuario selecciona regresion lineal
                 elif selected_algorithm == "Regresión Lineal Múltiple": 
                     if variables_x and variable_y:
                         r2, rmse, features_used, coefs, intercept, Y_test, Y_pred = apply_linear_regression(
-                            df_display, variables_x, variable_y
+                            df, variables_x, variable_y
                         )
-
                         # Validacion, por si hay errores
                         if r2 is not None:
                                 display_linear_regression_results(
@@ -457,24 +451,20 @@ def main():
                                 )
                         else:
                             st.error("No se pudo ejecutar la Regresión Lineal Múltiple. Revise la consola para detalles.")
-
-
                 # Si el ususario selecciona regresion logistica binaria
                 elif selected_algorithm == "Regresión Logística Binaria":
                     if variables_x and variable_y:
                         accuracy, feature_names, coefficients, intercept, Y_test, Y_pred = apply_logistic_regression(
-                            df_display, variables_x, variable_y
+                            df, variables_x, variable_y
                         )
-
                         # Validar por si hay errores
                         if accuracy is not None:
                             display_logistic_regression_results(
-                                accuracy, feature_names, coefficients, intercept, variable_y
+                                accuracy, feature_names, coefficients,
+                                intercept, variable_y
                             )
-
-
         except Exception as e:
             st.error(f"Error al leer el archivo: {e}")
-    
+
 if __name__ == "__main__":
     main()
