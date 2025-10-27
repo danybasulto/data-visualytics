@@ -254,50 +254,26 @@ def plot_linear_regression_results(Y_test: pd.Series, Y_pred: np.ndarray, target
 
     st.plotly_chart(fig, width='stretch')
 
-def display_logistic_regression_results(accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, target_y):
+def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarray):
     """
-    Muestra las metricas, matriz de confusion, coeficientes
-    y la visualizacion de la Regresion Logistica en Streamlit.
+    Crea un gráfico de barras mostrando la magnitud e impacto de los coeficientes del modelo.
     """
-    st.subheader("Resultados de Regresión Logística Binaria")
-    # Fila 1: Accuracy
-    st.metric(
-        label=f"Precisión (Accuracy) del Modelo", 
-        value=f"{accuracy*100:.2f}%", 
-        help="Proporción de predicciones correctas en el conjunto de prueba."
-    )
-    # Fila 2: Precision, Recall, F1-Score
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(label="Precisión (Precision)", value=f"{precision:.4f}", help="De todas las predicciones 'Positivas', cuántas fueron correctas. (Clase Positiva: 1)")
-    with col2:
-        st.metric(label="Sensibilidad (Recall)", value=f"{recall:.4f}", help="De todos los casos 'Positivos' reales, cuántos se detectaron. (Clase Positiva: 1)")
-    with col3:
-        st.metric(label="Puntuación F1 (F1-Score)", value=f"{f1:.4f}", help="Media armónica de Precision y Recall.")
-    st.write("---")
-    # Fila 3: Matriz de Confusion
-    st.write("### Matriz de Confusión")
-    # Usamos las etiquetas de clase reales obtenidas de factorize
-    cm_df = pd.DataFrame(cm, 
-                         columns=[f"Predicción: {c}" for c in unique_classes], 
-                         index=[f"Real: {c}" for c in unique_classes])
-    st.dataframe(cm_df, width='stretch')
-    st.info(f"Clase 0: '{unique_classes[0]}' (Negativa) | Clase 1: '{unique_classes[1]}' (Positiva)")
-    st.write("---")
-    # --- Coeficientes y Grafico ---
-    st.write("### Coeficientes del modelo (Log-Odds)")
-    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva.")
-    
     df_coefs = pd.DataFrame({
         'Variable': feature_names,
-        'Coeficiente (Log-Odds)': coefficients
-    })
-    st.dataframe(df_coefs, width='stretch')
-    st.write(f"**Intercepto:** '{intercept:.4f}'")
-    st.write("---")
-    # Visualizacion
-    st.write("### Visualización de la Importancia de las Características")
-    plot_logistic_regression_results(feature_names, coefficients)
+        'Coeficiente': coefficients
+    }).sort_values(by='Coeficiente', ascending=False)
+    
+    fig = px.bar(
+        df_coefs,
+        x='Coeficiente',
+        y='Variable',
+        orientation='h',
+        color=np.where(df_coefs['Coeficiente'] > 0, 'Positivo', 'Negativo'),
+        color_discrete_map={'Positivo': 'blue', 'Negativo': 'red'},
+        title="Importancia y Dirección del Impacto de las Variables (Coeficientes Logísticos)"
+    )
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(fig, width='stretch')
 
 # === Funciones de Visualizacion ===
 def display_kmeans_results(data: pd.DataFrame, features_x: list):
@@ -372,34 +348,47 @@ def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept,
     st.write("### Visualizacion de Predicciones")
     plot_linear_regression_results(Y_test, Y_pred, target_y)
 
-def display_logistic_regression_results(accuracy, feature_names, coefficients, intercept, target_y):
+def display_logistic_regression_results(accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, target_y):
     """
-    Muestra las métricas, coeficientes y la visualización de la Regresión Logística en Streamlit.
+    Muestra las metricas, matriz de confusion, coeficientes
+    y la visualizacion de la Regresion Logistica en Streamlit.
     """
     st.subheader("Resultados de Regresión Logística Binaria")
-
+    # Fila 1: Accuracy
     st.metric(
         label=f"Precisión (Accuracy) del Modelo", 
         value=f"{accuracy*100:.2f}%", 
         help="Proporción de predicciones correctas en el conjunto de prueba."
     )
-
+    # Fila 2: Precision, Recall, F1-Score
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Precisión (Precision)", value=f"{precision:.4f}", help="De todas las predicciones 'Positivas', cuántas fueron correctas. (Clase Positiva: 1)")
+    with col2:
+        st.metric(label="Sensibilidad (Recall)", value=f"{recall:.4f}", help="De todos los casos 'Positivos' reales, cuántos se detectaron. (Clase Positiva: 1)")
+    with col3:
+        st.metric(label="Puntuación F1 (F1-Score)", value=f"{f1:.4f}", help="Media armónica de Precision y Recall.")
     st.write("---")
-
-    # Mostrar el coeficiente del modelo
+    # Fila 3: Matriz de Confusion
+    st.write("### Matriz de Confusión")
+    # Usamos las etiquetas de clase reales obtenidas de factorize
+    cm_df = pd.DataFrame(cm, 
+                         columns=[f"Predicción: {c}" for c in unique_classes], 
+                         index=[f"Real: {c}" for c in unique_classes])
+    st.dataframe(cm_df, width='stretch')
+    st.info(f"Clase 0: '{unique_classes[0]}' (Negativa) | Clase 1: '{unique_classes[1]}' (Positiva)")
+    st.write("---")
+    # --- Coeficientes y Grafico ---
     st.write("### Coeficientes del modelo (Log-Odds)")
-    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva (1).")
+    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva.")
     
-    # Dataframe para mostrar 
     df_coefs = pd.DataFrame({
         'Variable': feature_names,
         'Coeficiente (Log-Odds)': coefficients
     })
     st.dataframe(df_coefs, width='stretch')
     st.write(f"**Intercepto:** '{intercept:.4f}'")
-    
     st.write("---")
-
     # Visualizacion
     st.write("### Visualización de la Importancia de las Características")
     plot_logistic_regression_results(feature_names, coefficients)
