@@ -170,12 +170,12 @@ def apply_logistic_regression(data: pd.DataFrame, features_x: list, target_y: st
     x_train_scaled = scaler.fit_transform(x_train)
     x_test_scaled = scaler.transform(x_test)
     # Entrenamiento del modelo
-    model = LogisticRegression(solver="liblinear", random_state=42)
+    model = LogisticRegression(solver="liblinear", random_state=42, class_weight='balanced') # Balanced para que no ignore ciertas etiquetas
     model.fit(x_train_scaled, y_train)
     # --- INICIO DE CALCULO DE METRICAS ---
     y_pred = model.predict(x_test_scaled)
     # La clase positiva se asume como 1 (la segunda encontrada por factorize)
-    pos_label = 1
+    pos_label = 0 # Cambie esto para que concidiera con la matriz de confusion
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
     recall = recall_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
