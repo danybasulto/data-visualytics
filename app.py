@@ -403,6 +403,23 @@ def main():
                 df = pd.read_csv(file)
             elif file.name.endswith('.xlsx'):
                 df = pd.read_excel(file)
+
+
+            # ====== Validacion del archivo RF-02 ======
+            
+            # Si el archivo esta vacio
+            if df.empty:
+                st.error("Error (RF-02): El archivo cargado esta vacio o no contiene ninguna fila de datos.")
+                return
+            
+            # Si no hay columnas numericas
+            numeric_cols = df.select_dtypes(include=np.number)
+            if numeric_cols.columns.empty:
+                st.error("Error RF(RF-02): El archivo cargado debe de contener al menos una columna numerica para el analisis.")
+                return
+            
+            # A partir de aqui es lo mismo de antes :)
+
             st.success("¡Archivo cargado exitosamente!")
             # --- Vista previa de los datos ---
             df_display = df.head(100)
