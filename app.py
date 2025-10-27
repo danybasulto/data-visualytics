@@ -156,6 +156,24 @@ def apply_logistic_regression(data: pd.DataFrame, features_x: list, target_y: st
     if len(unique_classes) != 2:
         st.error(f"Error: La Regresión Logística Binaria requiere que la variable objetivo '{target_y}' tenga exactamente dos clases. Se encontraron {len(unique_classes)}.")
         return None, None, None, None, None, None, None, None, None, None
+    # --- MODIFICACION IMPORTANTE ---
+    # Identificar dinamicamente la clase positiva.
+    # Asumimos que la clase "positiva" es la minoritaria.
+    # O podemos definirla por nombre, ej. 'yes'
+    # Vamos a encontrar el label (0 o 1) que corresponde a 'yes'
+    # Si 'yes' no existe, usaremos la clase minoritaria (la segunda en unique_classes)
+    positive_class_name = 'yes'
+    if positive_class_name in unique_classes:
+        pos_label = np.where(unique_classes == positive_class_name)[0][0]
+        positive_class_display_name = positive_class_name
+    else:
+        # Si no es 'yes' (ej. True/False), usa la segunda clase de factorize
+        pos_label = 1 
+        positive_class_display_name = unique_classes[pos_label]
+    # Guardamos el nombre de la clase negativa
+    neg_label = 1 - pos_label
+    negative_class_display_name = unique_classes[neg_label]
+    # --- FIN DE LA MODIFICACION ---
     # Preparacion de las variables predictoras (x)
     x = data[features_x].copy()
     x = pd.get_dummies(x, drop_first=True)
@@ -175,18 +193,26 @@ def apply_logistic_regression(data: pd.DataFrame, features_x: list, target_y: st
     model.fit(x_train_scaled, y_train)
     # --- INICIO DE CALCULO DE METRICAS ---
     y_pred = model.predict(x_test_scaled)
-    # La clase positiva se asume como 1 (la segunda encontrada por factorize)
-    pos_label = 0 # Cambie esto para que concidiera con la matriz de confusion
+    # --- MODIFICADO ---
+    # Usar el pos_label que encontramos dinamicamente
     accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
-    recall = recall_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
+    precision = precision_score(y_test, y_pred,
+                                pos_label=pos_label,
+                                zero_division=0.0)
+    recall = recall_score(y_test, y_pred,
+                          pos_label=pos_label, zero_division=0.0)
     f1 = f1_score(y_test, y_pred, pos_label=pos_label, zero_division=0.0)
-    cm = confusion_matrix(y_test, y_pred)
+    # Aseguramos el orden de la Matriz de Confusion:
+    # [Negativa(0), Positiva(1)] o [Clase(0), Clase(1)]
+    # El orden debe ser [neg_label, pos_label]
+    cm = confusion_matrix(y_test, y_pred, labels=[neg_label, pos_label])
     coefficients = model.coef_[0]
     intercept = model.intercept_[0]
     feature_names = x.columns.to_list()
+    # Creamos etiquetas claras para la matriz de confusion
+    cm_labels = [negative_class_display_name, positive_class_display_name]
     # Retorna los 11 valores
-    return accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, y_test, y_pred
+    return accuracy, precision, recall, f1, cm, cm_labels, feature_names, coefficients, intercept, y_test, y_pred
 
 # === Funciones para Graficar ===
 
@@ -361,55 +387,62 @@ def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept,
     st.write("### Visualizacion de Predicciones")
     plot_linear_regression_results(y_test, y_pred, target_y)
 
-def display_logistic_regression_results(accuracy, precision, recall, f1, cm, unique_classes, feature_names, coefficients, intercept, target_y):
+def display_logistic_regression_results(accuracy, precision, recall, f1, cm, cm_labels, feature_names, coefficients, intercept, target_y):
     """
-    Muestra las metricas, matriz de confusion, coeficientes
-    y la visualizacion de la Regresion Logistica en Streamlit.
+    Muestra las metricas, matriz de confusion, coeficientes y la visualizacion
+    de la Regresion Logistica en Streamlit.
     
     Args:
-        accuracy (float): La precision (accuracy) del modelo entrenado.
-        precision (float): La precision (precision) del modelo entrenado.
-        recall (float): La sensibilidad (recall) del modelo entrenado.
-        f1 (float): La puntuacion F1 (f1-score) del modelo entrenado.
-        cm (np.ndarray): La matriz de confusion del modelo entrenado.
-        unique_classes (np.ndarray): Las clases unicas encontradas en la variable objetivo.
-        feature_names (list): Nombres de las caracteristicas (X) utilizadas despues del One-Hot Encoding.
-        coefficients (np.ndarray): Los coeficientes del modelo para cada caracteristica.
-        intercept (float): El intercepto (ordenada al origen) del modelo.
-        target_y (str): Nombre de la variable objetivo.
+    accuracy (float): La precision (accuracy) del modelo entrenado.
+    precision (float): La precision (precision) del modelo entrenado.
+    recall (float): La sensibilidad (recall) del modelo entrenado.
+    f1 (float): La puntuacion F1 (f1-score) del modelo entrenado.
+    cm (np.ndarray): La matriz de confusion del modelo entrenado.
+    cm_labels (list): Las etiquetas (str) para la matriz de confusion [Negativa, Positiva].
+    feature_names (list): Nombres de las caracteristicas (X) utilizadas
+        despues del One-Hot Encoding.
+    coefficients (np.ndarray): Los coeficientes del modelo para cada caracteristica.
+    intercept (float): El intercepto (ordenada al origen) del modelo.
+    target_y (str): Nombre de la variable objetivo.
     """
     st.subheader("Resultados de Regresión Logística Binaria")
+    
+    # --- MODIFICADO ---
+    # Extraemos los nombres de las clases para las etiquetas de ayuda
+    negative_class_name = cm_labels[0]
+    positive_class_name = cm_labels[1]
     # Fila 1: Accuracy
     st.metric(
-        label=f"Precisión (Accuracy) del Modelo", 
-        value=f"{accuracy*100:.2f}%", 
+        label=f"Precisión (Accuracy) del Modelo",
+        value=f"{accuracy*100:.2f}%",
         help="Proporción de predicciones correctas en el conjunto de prueba."
-    )
+        )
     # Fila 2: Precision, Recall, F1-Score
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label="Precisión (Precision)", value=f"{precision:.4f}", help="De todas las predicciones 'Positivas', cuántas fueron correctas. (Clase Positiva: 1)")
+        st.metric(label=f"Precisión (Precision) para '{positive_class_name}'", value=f"{precision:.4f}", help=f"De todas las predicciones '{positive_class_name}', cuántas fueron correctas.")
     with col2:
-        st.metric(label="Sensibilidad (Recall)", value=f"{recall:.4f}", help="De todos los casos 'Positivos' reales, cuántos se detectaron. (Clase Positiva: 1)")
+        st.metric(label=f"Sensibilidad (Recall) para '{positive_class_name}'", value=f"{recall:.4f}", help=f"De todos los casos '{positive_class_name}' reales, cuántos se detectaron.")
     with col3:
-        st.metric(label="Puntuación F1 (F1-Score)", value=f"{f1:.4f}", help="Media armónica de Precision y Recall.")
+        st.metric(label=f"Puntuación F1 (F1-Score) para '{positive_class_name}'", value=f"{f1:.4f}", help="Media armónica de Precision y Recall.")
     st.write("---")
     # Fila 3: Matriz de Confusion
     st.write("### Matriz de Confusión")
     # Usamos las etiquetas de clase reales obtenidas de factorize
-    cm_df = pd.DataFrame(cm, 
-                         columns=[f"Predicción: {c}" for c in unique_classes], 
-                         index=[f"Real: {c}" for c in unique_classes])
+    cm_df = pd.DataFrame(cm,
+                         columns=[f"Predicción: {c}" for c in cm_labels],
+                         index=[f"Real: {c}" for c in cm_labels])
     st.dataframe(cm_df, width='stretch')
-    st.info(f"Clase 0: '{unique_classes[0]}' (Negativa) | Clase 1: '{unique_classes[1]}' (Positiva)")
+    st.info(f"Clase Negativa: '{negative_class_name}' | Clase Positiva: '{positive_class_name}'")
     st.write("---")
     # --- Coeficientes y Grafico ---
     st.write("### Coeficientes del modelo (Log-Odds)")
-    st.info("La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase positiva.")
+    st.info(f"La magnitud del coeficiente indica la importancia. El signo (+/-) indica la dirección del impacto en la probabilidad de la clase '{positive_class_name}'.")
+    # Click en Ejecutar Análisis:
     df_coefs = pd.DataFrame({
         'Variable': feature_names,
         'Coeficiente (Log-Odds)': coefficients
-    })
+        })
     st.dataframe(df_coefs, width='stretch')
     st.write(f"**Intercepto:** '{intercept:.4f}'")
     st.write("---")
@@ -567,14 +600,14 @@ def main():
                 elif selected_algorithm == "Regresión Logística Binaria":
                     if variables_x and variable_y:
                         (
-                            accuracy, precision, recall, f1, cm, unique_classes,
+                            accuracy, precision, recall, f1, cm, cm_labels,
                             feature_names, coefficients, intercept, y_test, y_pred
                         ) = apply_logistic_regression(
                             df, variables_x, variable_y
                         )
                         if accuracy is not None:
                             display_logistic_regression_results(
-                                accuracy, precision, recall, f1, cm, unique_classes,
+                                accuracy, precision, recall, f1, cm, cm_labels,
                                 feature_names, coefficients, intercept, variable_y
                             )
         except Exception as e:
