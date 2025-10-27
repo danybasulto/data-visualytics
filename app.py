@@ -96,6 +96,11 @@ def apply_linear_regression(data : pd.DataFrame, features_x : list, target_y: st
         # Semilla para la division de los datos
         random_state=42
     )
+    # --- Escalar datos X ---
+    # esto es importante para interpretar los coeficientes del modelo
+    scaler = StandardScaler()
+    x_train_scaled = scaler.fit_transform(x_train)
+    x_test_scaled = scaler.transform(x_test)
     # === Aqui entrenamos el modelo :)
     model = LinearRegression()
     # Pasamos los datosd del entrenamiento
@@ -336,6 +341,10 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list, k: int):
         return
     if x_data_numeric.shape[1] < len(features_x):
         st.warning("Advertencia: Se ignoraron algunas columnas no numéricas seleccionadas.")
+    # Escalar los datos para K-Means
+    # k-means es un algoritmo basado en distancias, por lo que es OBLIGATORIO escalar los datos
+    scaler = StandardScaler()
+    x_data_scaled = scaler.fit_transform(x_data_numeric)
     # ejecutar el modelo
     labels, inertia, groups_sizes = apply_kmeans(x_data_numeric, k=k)
     # mostrar resultados en la interfaz
