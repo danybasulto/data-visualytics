@@ -276,7 +276,7 @@ def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarr
     st.plotly_chart(fig, width='stretch')
 
 # === Funciones de Visualizacion ===
-def display_kmeans_results(data: pd.DataFrame, features_x: list):
+def display_kmeans_results(data: pd.DataFrame, features_x: list, k: int):
     """
     Prepara los datos, ejecuta K-Means y muestra los resultados en Streamlit.
     """
@@ -299,10 +299,10 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list):
         st.warning("Advertencia: Se ignoraron algunas columnas no numéricas seleccionadas.")
 
     # ejecutar el modelo
-    labels, inertia, groups_sizes = apply_kmeans(x_data_numeric, k=3)
+    labels, inertia, groups_sizes = apply_kmeans(x_data_numeric, k=k)
 
     # mostrar resultados en la interfaz
-    st.write("El modelo ha clasificado los datos en 3 grupos:")
+    st.write("El modelo ha clasificado los datos en {k} grupos:")
 
     # usamos st.metric para un buen impacto visual
     st.metric(label="Inercia Total (Suma de distancias cuadradas)", value=f"{inertia:.2f}")
@@ -420,6 +420,7 @@ def main():
             )
 
             variable_y = None
+            k_clusters = 3 # valor por default
             if selected_algorithm != "K-Means":
                 # filtramos las opciones para la variable "y" de modo que
                 # no se pueda seleccionar una variable que ya este en "x"
@@ -432,13 +433,22 @@ def main():
                     options=options_y,
                     help="Esta es la variable que el modelo intentará predecir."
                 )
+            else:
+                k_clusters = st.number_input(
+                    "Seleccione el número de clústeres (k):",
+                    min_value=2,
+                    max_value=10, # limite razonable
+                    value=3, # valor por defecto
+                    step=1,
+                    help="Número de grupos a encontrar. Default=3."
+                )
             # === Boton para ejecutar el analisis ===
             if st.button("Ejecutar Análisis"):
                 if selected_algorithm == "K-Means":
                     if not variables_x:
                         st.warning("Por favor, seleccione al menos una /variable de atributo (x) para K-Means.")
                     else:
-                        display_kmeans_results(df, variables_x)
+                        display_kmeans_results(df, variables_x, k_clusters)
                 # Si el usuario selecciona regresion lineal
                 elif selected_algorithm == "Regresión Lineal Múltiple": 
                     if variables_x and variable_y:
