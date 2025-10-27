@@ -212,7 +212,7 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
             color='Cluster',
             title="Visualización de Clústeres (K-Means)"
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
     elif len(features_x) == 3:
         # Grafico 3D
         fig = px.scatter_3d(
@@ -223,7 +223,7 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
             color='Cluster',
             title="Visualización de Clústeres (K-Means) 3D"
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
 
@@ -259,7 +259,7 @@ def plot_linear_regression_results(y_test: pd.Series, y_pred: np.ndarray, target
         line=dict(color="red", width=2, dash="dash"),
         name='Ajuste Perfecto(Y = X)'
     )
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarray):
     """
@@ -283,7 +283,7 @@ def plot_logistic_regression_results(feature_names: list, coefficients: np.ndarr
         title="Importancia y Dirección del Impacto de las Variables (Coeficientes Logísticos)"
     )
     fig.update_layout(showlegend=False)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
 
 # === Funciones de Visualizacion ===
 
