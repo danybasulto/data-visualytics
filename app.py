@@ -462,6 +462,16 @@ def display_logistic_regression_results(accuracy, precision, recall, f1, cm, cm_
 # === Aplicacion Principal ===
 
 def main():
+    # --- Configuracion de la pagina ---
+    st.set_page_config(page_title="Data Visualytics",
+                       page_icon="./assets/icon_light.png",
+                       layout="wide")
+
+    left_col, center_col, right_col = st.columns(3)
+    # centrar logo
+    with center_col:
+        st.image("./assets/logo_dark.png", use_container_width=True)
+    # --- Inicializacion de la sesion ---
     # inicializar un id para el file_uploader en la sesion
     # esto nos permite forzar su reinicio cambiando su clave
     if "file_uploader_id" not in st.session_state:
