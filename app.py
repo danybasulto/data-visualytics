@@ -10,6 +10,19 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 
+@st.cache_data
+def _df_to_csv(df: pd.DataFrame):
+    """
+    Convierte un DataFrame de pandas a un archivo CSV en memoria para st.download_button.
+    
+    Args:
+        df (pd.DataFrame): El DataFrame a convertir.
+        
+    Returns:
+        bytes: El contenido del archivo CSV en bytes.
+    """
+    return df.to_csv(index=False).encode("utf-8")
+
 # === Funciones de Analisis ===
 
 def apply_kmeans(x_data, k=3):
@@ -230,10 +243,15 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
         features_x (list): Lista de cadenas con los nombres de las columnas seleccionadas como variables
             independientes (X).
         labels (np.ndarray): Etiquetas de clúster asignadas a cada punto de datos.
+        
+    Returns:
+        fig (plotly.graph_objs._figure.Figure): La figura de Plotly creada (2D o 3D).
+        data_plot (pd.DataFrame): DataFrame con las etiquetas de clúster agregadas.
     """
     # agregamos las etiquetas de cluster al dataframe para que Plotly pueda usarlas
     data_plot = data[features_x].copy()
     data_plot['Cluster'] = labels.astype(str)  # Convertir a string para colores categoricos
+    fig = None
     if len(features_x) == 2:
         # Grafico 2D
         fig = px.scatter(
@@ -254,9 +272,9 @@ def plot_kmeans_results(data: pd.DataFrame, features_x: list, labels: np.ndarray
             color='Cluster',
             title="Visualización de Clústeres (K-Means) 3D"
         )
-        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
+    return fig, data_plot
 
 def plot_linear_regression_results(y_test: pd.Series, y_pred: np.ndarray, target_y: str):
     """
@@ -357,9 +375,33 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list, k: int):
         'Clúster': [f"Clúster {i}" for i in range(len(groups_sizes))],
         'Número de Registros': groups_sizes
     })
-    st.dataframe(df_sizes)
-    # graficar los resultados
-    plot_kmeans_results(data, features_x, labels)
+    st.dataframe(df_sizes, use_container_width=True)
+    # --- Capturar fig y data_plot ---
+    fig, data_plot = plot_kmeans_results(data, features_x, labels)
+    if fig:
+        st.plotly_chart(fig, use_container_width=True)
+        # --- Botones de descarga ---
+        st.write("---")
+        st.write("#### Opciones de Descarga")
+        col1, col2 = st.columns(2)
+        with col1:
+            csv_data = _df_to_csv(data_plot)
+            st.download_button(
+                label="Descargar Datos con Clusters (CSV)",
+                data=csv_data,
+                file_name=f"kmeans_clusters_k{k}.csv",
+                mime="text/csv",
+                )
+        with col2:
+            html_fig = fig.to_html()
+            st.download_button(
+                label="Descargar Gráfico (HTML)",
+                data=html_fig,
+                file_name=f"kmeans_plot_k{k}.html",
+                mime="text/html",
+                )
+    else:
+        st.info("Seleccione 2 o 3 variables numéricas en (X) para generar un gráfico de dispersión.")
 
 def display_linear_regression_results(r2, rmse, featured_used, coefs, intercept, y_test, y_pred, target_y):
     """
@@ -478,7 +520,6 @@ def main():
         st.session_state.file_uploader_id = 0
     # creamos la clave dinamica que usara el widget
     uploader_key = f"uploader_{st.session_state.file_uploader_id}"
-    
     # --- Callbacks para Sesion ---
     def _load_data(key_to_read: str):
         """
