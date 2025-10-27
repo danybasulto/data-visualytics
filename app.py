@@ -420,14 +420,21 @@ def display_logistic_regression_results(accuracy, precision, recall, f1, cm, uni
 # === Aplicacion Principal ===
 
 def main():
+    # inicializar un id para el file_uploader en la sesion
+    # esto nos permite forzar su reinicio cambiando su clave
+    if "file_uploader_id" not in st.session_state:
+        st.session_state.file_uploader_id = 0
+    # creamos la clave dinamica que usara el widget
+    uploader_key = f"uploader_{st.session_state.file_uploader_id}"
+    
     # --- Callbacks para Sesion ---
-    def _load_data():
+    def _load_data(key_to_read: str):
         """
         Callback para cargar el archivo en st.session_state.df
         Se activa cuando el st.file_uploader cambia.
         """
-        # Obtenemos el archivo desde la clave del widget
-        file = st.session_state.uploader_key 
+        # Obtenemos el archivo desde la clave dinamica que nos pasan como argumento
+        file = st.session_state[key_to_read]
         if file is None:
             # Esto puede pasar si el usuario borra el archivo con la 'x'
             return
@@ -470,16 +477,19 @@ def main():
         """
         if 'df' in st.session_state:
             del st.session_state.df
-        if 'uploader_key' in st.session_state:
-            del st.session_state.uploader_key
+        # en lugar de borrar la clave, simplemente incrementamos el id para
+        # cambiar la clave del widget en el proximo re-render, forzando a
+        # Streamlit a crear un nuevo (vacio)
+        st.session_state.file_uploader_id += 1
         st.info("Sesión Reiniciada. Puede cargar un nuevo archivo.")
     # --- Cargar Archivo ---
     st.header("Cargar Archivo")
     st.file_uploader(
         "Elige un archivo CSV o XLSX",
         type=["csv", "xlsx"],
-        key="uploader_key",        # Clave para acceder/borrar el estado del widget
-        on_change=_load_data     # Callback para cargar los datos
+        key=uploader_key, # usamos la clave dinamica
+        on_change=_load_data, # Callback para cargar los datos
+        args=(uploader_key,) # pasamos la clave dinamica como argumento
     )
     # --- Logica principal basada en sesion ---
     # El resto de la app solo se ejecuta si 'df' existe en la sesion
