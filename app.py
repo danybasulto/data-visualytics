@@ -302,7 +302,7 @@ def display_kmeans_results(data: pd.DataFrame, features_x: list, k: int):
     labels, inertia, groups_sizes = apply_kmeans(x_data_numeric, k=k)
 
     # mostrar resultados en la interfaz
-    st.write("El modelo ha clasificado los datos en {k} grupos:")
+    st.write(f"El modelo ha clasificado los datos en {k} grupos:")
 
     # usamos st.metric para un buen impacto visual
     st.metric(label="Inercia Total (Suma de distancias cuadradas)", value=f"{inertia:.2f}")
@@ -394,37 +394,82 @@ def display_logistic_regression_results(accuracy, precision, recall, f1, cm, uni
     plot_logistic_regression_results(feature_names, coefficients)
 
 def main():
-    st.header("Cargar Archivo")
-    file = st.file_uploader("Elige un archivo CSV o XLSX", type=["csv", "xlsx"])
-
-    if file is not None:
+    # --- Callbacks para Sesion ---
+    def _load_data():
+        """
+        Callback para cargar el archivo en st.session_state.df
+        Se activa cuando el st.file_uploader cambia.
+        """
+        # Obtenemos el archivo desde la clave del widget
+        file = st.session_state.uploader_key 
+        if file is None:
+            # Esto puede pasar si el usuario borra el archivo con la 'x'
+            return
         try:
+            # Cargar datos en la sesion
             if file.name.endswith('.csv'):
-                df = pd.read_csv(file)
+                st.session_state.df = pd.read_csv(file)
             elif file.name.endswith('.xlsx'):
-                df = pd.read_excel(file)
-
-
-            # ====== Validacion del archivo RF-02 ======
-            
+                st.session_state.df = pd.read_excel(file)
+            # --- INICIO DE VALIDACION ---
+            df_to_validate = st.session_state.df
             # Si el archivo esta vacio
-            if df.empty:
-                st.error("Error (RF-02): El archivo cargado esta vacio o no contiene ninguna fila de datos.")
+            if df_to_validate.empty:
+                st.error("Error: El archivo cargado esta vacio o no contiene ninguna fila de datos.")
+                del st.session_state.df # Limpiar en caso de error
                 return
-            
             # Si no hay columnas numericas
-            numeric_cols = df.select_dtypes(include=np.number)
+            numeric_cols = df_to_validate.select_dtypes(include=np.number)
             if numeric_cols.columns.empty:
-                st.error("Error RF(RF-02): El archivo cargado debe de contener al menos una columna numerica para el analisis.")
+                st.error("Error: El archivo cargado debe de contener al menos una columna numerica para el analisis.")
+                del st.session_state.df # Limpiar en caso de error
                 return
-            
-            # A partir de aqui es lo mismo de antes :)
-
+            # Si pasa las validaciones, mostrar exito
             st.success("¡Archivo cargado exitosamente!")
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
+            if 'df' in st.session_state:
+                del st.session_state.df # Borrar en caso de error
+
+    def _clear_data():
+        """
+        Callback para reiniciar el analisis.
+        Borra el DataFrame y la clave del file_uploader de la sesion.
+        """
+        if 'df' in st.session_state:
+            del st.session_state.df
+        if 'uploader_key' in st.session_state:
+            del st.session_state.uploader_key
+        st.info("Sesión Reiniciada. Puede cargar un nuevo archivo.")
+    # --- Cargar Archivo ---
+    st.header("Cargar Archivo")
+    st.file_uploader(
+        "Elige un archivo CSV o XLSX",
+        type=["csv", "xlsx"],
+        key="uploader_key",        # Clave para acceder/borrar el estado del widget
+        on_change=_load_data     # Callback para cargar los datos
+    )
+    # --- Logica principal basada en sesion ---
+    # El resto de la app solo se ejecuta si 'df' existe en la sesion
+    if 'df' in st.session_state:
+        # Obtenemos el df de la sesion
+        df = st.session_state.df
+        # --- Boton de Reinicio ---
+        st.button(
+            "Reiniciar Sesión", 
+            on_click=_clear_data, 
+            type="primary", 
+            help="Haga clic para eliminar el archivo cargado y empezar de nuevo."
+        )
+        st.divider()
+        # --- Resto de la app (dentro de un try/except) ---
+        try:
             # --- Vista previa de los datos ---
+            st.header("Vista Previa de Datos")
             df_display = df.head(100)
             st.dataframe(df_display)
-
+            # --- Configurar Analisis ---
+            st.header("Configurar Análisis")
             columns = df.columns.tolist()
             selected_algorithm = st.selectbox(
                 "Seleccione el algoritmo a ejecutar:",
@@ -435,52 +480,48 @@ def main():
                 options=columns,
                 help="Estas son las variables que el modelo usará para predecir."
             )
-
             variable_y = None
             k_clusters = 3 # valor por default
             if selected_algorithm != "K-Means":
-                # filtramos las opciones para la variable "y" de modo que
-                # no se pueda seleccionar una variable que ya este en "x"
                 options_y = [col for col in columns if col not in variables_x]
-
-                # === La variable "y", debe ser cuantitativa
-                # Hay que mejorar esto en el formulario ===
                 variable_y = st.selectbox(
                     "Seleccione la variable de la clase (y):",
                     options=options_y,
                     help="Esta es la variable que el modelo intentará predecir."
                 )
             else:
+                # Selector de k para K-Means
                 k_clusters = st.number_input(
                     "Seleccione el número de clústeres (k):",
                     min_value=2,
-                    max_value=10, # limite razonable
-                    value=3, # valor por defecto
+                    max_value=10, 
+                    value=3, 
                     step=1,
                     help="Número de grupos a encontrar. Default=3."
                 )
-            # === Boton para ejecutar el analisis ===
+            # --- Ejecutar Analisis ---
+            st.header("Ejecutar y Ver Resultados")
             if st.button("Ejecutar Análisis"):
+                # si el usuario selecciona K-Means
                 if selected_algorithm == "K-Means":
                     if not variables_x:
-                        st.warning("Por favor, seleccione al menos una /variable de atributo (x) para K-Means.")
+                        st.warning("Por favor, seleccione al menos una variable de atributo (x) para K-Means.")
                     else:
                         display_kmeans_results(df, variables_x, k_clusters)
-                # Si el usuario selecciona regresion lineal
-                elif selected_algorithm == "Regresión Lineal Múltiple": 
+                # si el usuario selecciona Regresion Lineal Multiple
+                elif selected_algorithm == "Regresión Lineal Múltiple":
                     if variables_x and variable_y:
                         r2, rmse, features_used, coefs, intercept, y_test, y_pred = apply_linear_regression(
                             df, variables_x, variable_y
                         )
-                        # Validacion, por si hay errores
                         if r2 is not None:
-                                display_linear_regression_results(
-                                    r2, rmse, features_used, coefs, intercept, 
-                                    y_test, y_pred, variable_y
-                                )
+                            display_linear_regression_results(
+                                r2, rmse, features_used, coefs, intercept, 
+                                y_test, y_pred, variable_y
+                            )
                         else:
                             st.error("No se pudo ejecutar la Regresión Lineal Múltiple. Revise la consola para detalles.")
-                # Si el ususario selecciona regresion logistica binaria
+                # si el usuario selecciona Regresion Logistica Binaria
                 elif selected_algorithm == "Regresión Logística Binaria":
                     if variables_x and variable_y:
                         (
@@ -489,14 +530,13 @@ def main():
                         ) = apply_logistic_regression(
                             df, variables_x, variable_y
                         )
-                        # Validar por si hay errores
                         if accuracy is not None:
                             display_logistic_regression_results(
                                 accuracy, precision, recall, f1, cm, unique_classes,
                                 feature_names, coefficients, intercept, variable_y
                             )
         except Exception as e:
-            st.error(f"Error al leer el archivo: {e}")
+            st.error(f"Error al procesar el análisis: {e}")
 
 if __name__ == "__main__":
     main()
