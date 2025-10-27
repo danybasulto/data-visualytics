@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from pandas.errors import EmptyDataError
 import numpy as np
 import plotly.express as px
 from sklearn.model_selection import train_test_split
@@ -438,7 +439,7 @@ def main():
                 st.session_state.df = pd.read_excel(file)
             # --- INICIO DE VALIDACION ---
             df_to_validate = st.session_state.df
-            # Si el archivo esta vacio
+            # Si pandas leyo el archivo pero no encontro filas (ej. solo cabeceras)
             if df_to_validate.empty:
                 st.error("Error: El archivo cargado esta vacio o no contiene ninguna fila de datos.")
                 del st.session_state.df # Limpiar en caso de error
@@ -451,11 +452,17 @@ def main():
                 return
             # Si pasa las validaciones, mostrar exito
             st.success("¡Archivo cargado exitosamente!")
-        except Exception as e:
-            st.error(f"Error al leer el archivo: {e}")
+        except (EmptyDataError, ValueError):
+            # Captura especifica para archivos 100% vacios o que pandas no puede parsear
+            st.error("Error: El archivo está vacío o tiene un formato que no se puede leer (ej. sin columnas).")
             if 'df' in st.session_state:
                 del st.session_state.df # Borrar en caso de error
-
+        except Exception as e:
+            # Captura para cualquier otro error inesperado (ej. permisos, corrupcion)
+            st.error(f"Error inesperado al leer el archivo: {e}")
+            if 'df' in st.session_state:
+                del st.session_state.df # Borrar en caso de error
+    
     def _clear_data():
         """
         Callback para reiniciar el analisis.
